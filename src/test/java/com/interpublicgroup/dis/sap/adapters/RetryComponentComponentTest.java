@@ -16,36 +16,66 @@
  */
 package com.interpublicgroup.dis.sap.adapters;
 
+import org.apache.camel.CamelContext;
+import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
+import org.apache.camel.component.mock.MockComponent;
 import org.apache.camel.component.mock.MockEndpoint;
 import org.apache.camel.test.junit4.CamelTestSupport;
 import org.junit.Assert;
 import org.junit.Test;
 
-public class RetryComponentComponentTest extends CamelTestSupport {
+import java.util.concurrent.atomic.AtomicInteger;
 
+public class RetryComponentComponentTest extends CamelTestSupport {
     @Test
-    public void testSample() throws Exception {
+    public void testSuccessCase() throws Exception {
         MockEndpoint mock = getMockEndpoint("mock:result");
-        mock.expectedMinimumMessageCount(1);       
-        
+        mock.expectedMinimumMessageCount(1);
+
+        MockEndpoint step1 = getMockEndpoint("sap-processdirect:ipg?address=url1");
+        AtomicInteger count = new AtomicInteger();
+        step1.whenAnyExchangeReceived(exchange -> {
+            count.addAndGet(1);
+        });
+        template.sendBody("direct:start", "haha");
+
         assertMockEndpointsSatisfied();
-        
+        Assert.assertEquals(1, count.get());
+    }
+    @Test
+    public void testErrorCase() throws Exception {
+        Exchange start = getMandatoryEndpoint("direct:start").createExchange();
+        start.getIn().setBody("haha");
+
+        MockEndpoint step1 = getMockEndpoint("sap-processdirect:ipg?address=url1");
+        AtomicInteger count = new AtomicInteger();
+        step1.whenAnyExchangeReceived(exchange -> {
+            count.addAndGet(1);
+            throw new Exception("dummy exception");
+        });
+
+        Exchange result = template.send("direct:start", start);
+        assertTrue(result.isFailed());
         assertMockEndpointsSatisfied();
-        String finalResultFromProducer = mock.getExchanges().get(0).getIn().getBody(String.class);
-        System.out.println(finalResultFromProducer);
-        String expected = "HELLO WORLD2";
-        Assert.assertTrue("Did not get expected result", finalResultFromProducer.contains(expected));
+        Assert.assertEquals(5, count.get());
     }
 
     @Override
     protected RouteBuilder createRouteBuilder() throws Exception {
         return new RouteBuilder() {
             public void configure() {
-                from("ipg-retry://foo?greetingsMessage=Hello world1")
-                  .to("ipg-retry://bar?greetingsMessage=Hello world2")
+                from("direct:start")
+                  .to("ipg-retry://ipg?address=url1&count=5&interval=5")
                   .to("mock:result");
             }
         };
+    }
+
+    @Override
+    protected CamelContext createCamelContext() throws Exception {
+        CamelContext camelContext = super.createCamelContext();
+        camelContext.addComponent("sap-processdirect", new MockComponent());
+        return camelContext;
     }
 }

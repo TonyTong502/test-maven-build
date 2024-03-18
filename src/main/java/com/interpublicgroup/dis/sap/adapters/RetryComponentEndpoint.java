@@ -38,29 +38,43 @@ public class RetryComponentEndpoint extends DefaultPollingEndpoint {
 
     private transient Logger logger = LoggerFactory.getLogger(RetryComponentEndpoint.class);
 
+    private Object lock = new Object();
     @UriParam
-    private String greetingsMessage;
-    
+    private String address;
     @UriParam
-    private boolean useFormater;
+    private int count;
+    @UriParam
+    private int interval;
 
-	public boolean getUseFormater() {
-		return useFormater;
-	}
+    public String getAddress() {
+        return address;
+    }
 
-	public void setUseFormater(boolean useFormater) {
-		this.useFormater = useFormater;
-	}
+    public void setAddress(String address) {
+        this.address = address;
+    }
 
-	public String getGreetingsMessage() {
-		return greetingsMessage;
-	}
+    public int getCount() {
+        return count;
+    }
 
-	public void setGreetingsMessage(String greetingsMessage) {
-		this.greetingsMessage = greetingsMessage;
-	}
+    public void setCount(int count) {
+        this.count = count;
+    }
 
-	public RetryComponentEndpoint() {
+    public int getInterval() {
+        return interval;
+    }
+
+    public void setInterval(int interval) {
+        this.interval = interval;
+    }
+
+    public Object getLock() {
+        return lock;
+    }
+
+    public RetryComponentEndpoint() {
     }
 
     public RetryComponentEndpoint(final String endpointUri, final RetryComponentComponent component) throws URISyntaxException {
@@ -77,9 +91,7 @@ public class RetryComponentEndpoint extends DefaultPollingEndpoint {
     }
 
     public Consumer createConsumer(Processor processor) throws Exception {
-        final RetryComponentConsumer consumer = new RetryComponentConsumer(this, processor);
-        configureConsumer(consumer);
-        return consumer;
+        throw new Exception("not available");
     }
 
     public boolean isSingleton() {

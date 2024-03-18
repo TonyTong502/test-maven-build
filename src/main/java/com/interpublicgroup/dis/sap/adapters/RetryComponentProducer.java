@@ -16,10 +16,21 @@
  */
 package com.interpublicgroup.dis.sap.adapters;
 
+import org.apache.camel.CamelContext;
 import org.apache.camel.Exchange;
+import org.apache.camel.Message;
+import org.apache.camel.ProducerTemplate;
 import org.apache.camel.impl.DefaultProducer;
+import org.apache.camel.builder.ExchangeBuilder;
+import org.apache.camel.builder.SimpleBuilder;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * The www.Sample.com producer.
@@ -39,17 +50,65 @@ public class RetryComponentProducer extends DefaultProducer {
     }
 
     public void process(final Exchange exchange) throws Exception {
-        String input = exchange.getIn().getBody(String.class);
-		String greetingMessage = endpoint.getGreetingsMessage();
-		if(greetingMessage == null || greetingMessage.isEmpty()) {
-			greetingMessage = "(Producer) Hello!";
-		}
-		String messageInUpperCase = greetingMessage.toUpperCase();
-		if (input != null) {
-		    LOG.debug(input);
-			messageInUpperCase = input + " (Producer) : " + messageInUpperCase;
-		}
-		exchange.getIn().setBody(messageInUpperCase);
+        String address = getValue(endpoint.getAddress(), exchange);
+        String url = getSAPAddress(address);
+        int count = endpoint.getCount();
+        long interval = (long) endpoint.getInterval() * 1000;
+        AtomicInteger counter = new AtomicInteger(1);
+        Exchange response;
+        while(
+                (response = process(exchange.getContext(), url, exchange.getIn())).isFailed()
+                        && counter.get() < count
+        ) {
+            counter.addAndGet(1);
+            Thread.sleep(interval);
+        }
+        if(response.isFailed())
+            exchange.setException(response.getException());
     }
 
+    private Exchange process(CamelContext context, String url, Message message) {
+        return process(context, url, message.getBody(), message.getHeaders());
+    }
+
+    private Exchange process(CamelContext context, String url, Object body, Map<String, Object> headers){
+        ExchangeBuilder builder = ExchangeBuilder.anExchange(context);
+        if(body != null){
+            builder.withBody(body);
+        }
+        if(headers!=null && !headers.isEmpty()){
+            for(Map.Entry<String, Object> entry: headers.entrySet()){
+                builder.withHeader(entry.getKey(), entry.getValue());
+            }
+        }
+        Exchange request = builder.build();
+        ProducerTemplate producer = context.createProducerTemplate();
+        return producer.send(url, request);
+    }
+
+    private String getValue(String source, Exchange exchange){
+        if(source == null || source.trim().isEmpty())
+            return "";
+        Pattern p = Pattern.compile("\\$\\{.*?}");
+        Matcher m = p.matcher(source);
+        while(m.find()){
+            String expression = m.group();
+            String evaluated = evaluateSimple(expression,exchange);
+            if(evaluated == null){
+                throw new RuntimeException("expression:" + expression + " cannot be null");
+            }
+            source = source.replace(expression, evaluated);
+        }
+        return source;
+    }
+    private String evaluateSimple(String expression, Exchange exchange){
+        return SimpleBuilder.simple(expression).evaluate(exchange, String.class);
+    }
+
+    private String getSAPAddress(String address){
+        if(StringUtils.isNotEmpty(address))
+            return String.format("sap-processdirect:ipg?address=%s", address);
+        else
+            throw new RuntimeException("address is empty");
+    }
 }
