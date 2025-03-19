@@ -31,7 +31,8 @@ jobs:
     - name: 'upload release assets'
       run: |
           cd ${{github.workspace}}
-          gh release upload ${{github.event.release.tag_name}} ${{ github.workspace }}/target/build/${{ github.event.repository.name }}.esa
+          pwd
+          gh release upload ${{github.event.release.tag_name}} target/build/${{ github.event.repository.name }}.esa
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
