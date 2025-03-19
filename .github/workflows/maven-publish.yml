@@ -33,6 +33,6 @@ jobs:
           cd ${{github.workspace}}
           gh release upload ${{github.event.release.tag_name}} ${{ github.workspace }}/target/build/*.esa
       env:
-        GITHUB_TOKEN: ${{ github.TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       shell: bash
     
