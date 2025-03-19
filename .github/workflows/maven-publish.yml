@@ -30,9 +30,9 @@ jobs:
 
     - name: 'upload release assets'
       run: |
-          cd ${{github.workspace}}
-          pwd
-          gh release upload ${{github.event.release.tag_name}} target/build/${{ github.event.repository.name }}.esa
+          cd ${{github.workspace}}/target/build/
+          mv ${{ github.event.repository.name }}.esa ipg-retry-relay-custom-adapter.esa
+          gh release upload ${{github.event.release.tag_name}} ipg-retry-relay-custom-adapter.esa
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
